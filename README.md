@@ -19,9 +19,10 @@ The included script automates the process of fetching metadata for DOIs (Digital
   - Type of publication
   - Publisher
   - Hyperlink Creation: Adds a hyperlink to the DOI in the Excel sheet that redirects to the CrossRef API page for that DOI.
+  - Citation (bib format)
 
 #### Script Usage
-- Import the script: In the Code Editor in Excel, add a 
+- Import the script: In the Code Editor in Excel, add a new script, and copy the text in the txt file to the script.
 - Selection: Select a single column in the Excel sheet containing DOIs.
 - Run the Script: The script will validate each DOI, fetch the relevant metadata, and populate the adjacent cells with the retrieved information.
 
