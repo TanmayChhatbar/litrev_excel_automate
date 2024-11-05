@@ -1,0 +1,85 @@
+async function main(workbook: ExcelScript.Workbook) {
+  // Get the selected range.
+  let selectedRange = workbook.getSelectedRange();
+
+  // Get the number of rows and columns in the selected range.
+  let rowCount = selectedRange.getRowCount();
+  let columnCount = selectedRange.getColumnCount();
+
+  // Check if the column count is greater than 1.
+  if (columnCount > 1) {
+    console.error("Error: More than one column selected. Please select a single column.");
+    return; // Exit the function.
+  }
+
+  for (let row = 0; row < rowCount; row++) {
+    let cell = selectedRange.getCell(row, 0);
+    let doi = cell.getValue().toString().trim();
+
+    if (isDoi(doi)) {
+      let doi_url = "https://api.crossref.org/works/" + doi;
+      const response = await fetch(doi_url);
+      if (!response.ok) continue;
+      const jsonData: CrossRefResponse = await response.json();
+
+      let authors: object = jsonData.message["author"];
+      if (authors.length > 1) {
+        authorName = authors[0]["family"] + " et al.";
+      }
+      else {
+        authorName = authors[0]["family"];
+      }
+      let title: string = jsonData.message.title[0];
+      let year = jsonData.message["published-print"]?.["date-parts"]?.[0]?.[0] || 'Unknown';
+      let citations = jsonData.message["is-referenced-by-count"] || 0;
+      let pubtype: string = jsonData.message["type"];
+      let publisher = jsonData.message.publisher || 'Unknown';
+      let bibData_url: string = "https://api.crossref.org/works/"+doi+"/transform/application/x-bibtex";
+      const response_bib = await fetch(bibData_url);
+      let bibData = await response_bib.text();
+      bibData = bibData.trim()
+      let cite_as: string = bibData.split("{")[1].split(",")[0];
+      
+      // Populate the cells in the row with the data
+      data = [[authorName, title, year, citations, pubtype, publisher, bibData, cite_as]];
+      rowRange = workbook.getActiveWorksheet().getRangeByIndexes(cell.getRowIndex(), cell.getColumnIndex()+1, 1, data[0].length)
+      rowRange.setValues(data);
+      
+      let doi_url_file = "./literature/" + doi.replaceAll("/","-")+".pdf";
+      let doi_hyperlink: ExcelScript.RangeHyperlink = {
+        address: doi_url_file,
+        textToDisplay: doi
+      }
+      cell.setHyperlink(doi_hyperlink);
+    } else {
+      console.log(`No DOI found in row ${row + 1}`);
+    }
+  }
+}
+
+function isDoi(doi: string): boolean {
+  // Check if DOI starts with "10" and contains a "/"
+  if (doi.startsWith("10") && doi.includes("/")) {
+    return true;
+  }
+  return false;
+}
+
+interface CrossRefResponse {
+  message: {
+    'published-print'?: {
+      'date-parts'?: number[][];
+    };
+    'is-referenced-by-count'?: number;
+    publisher?: string;
+  };
+}
+interface BibtexResponse {
+  message: {
+    'published-print'?: {
+      'date-parts'?: number[][];
+    };
+    'is-referenced-by-count'?: number;
+    publisher?: string;
+  };
+}
