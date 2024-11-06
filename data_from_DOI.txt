@@ -25,47 +25,53 @@ async function main(workbook: ExcelScript.Workbook) {
       // parse data
       const jsonData: CrossRefResponse = await response.json();
       let authors: object = jsonData.message["author"];
-      if (authors.length > 2) {
-        authorName = authors[0]["family"] + " et al.";
-      }
-      else if (authors.length > 1) {
-        authorName = authors[0]["family"] + " & " + authors[1]["family"];
+      if (authors != undefined) {
+        if (authors.length > 2) {
+          authorName = authors[0]["family"] + " et al.";
+        }
+        else if (authors.length > 1) {
+          authorName = authors[0]["family"] + " & " + authors[1]["family"];
+        }
+        else {
+          authorName = authors[0]["family"];
+        }
+        let title: string = jsonData.message.title[0].replace("\n", " ");
+        while (title.search("  ") != -1)
+          title = title.replace("  ", " ");
+        let year = jsonData.message["published-print"]?.["date-parts"]?.[0]?.[0] || 'Unknown';
+        let citations = jsonData.message["is-referenced-by-count"] || 0;
+        let pubtype: string = jsonData.message["type"];
+        let publisher = jsonData.message.publisher || 'Unknown';
+        let bibData_url: string = "https://api.crossref.org/works/"+doi+"/transform/application/x-bibtex";
+        const response_bib = await fetch(bibData_url);
+        let bibData = await response_bib.text();
+        bibData = bibData.trim()
+        let cite_as: string = bibData.split("{")[1].split(",")[0];
+        
+        // Populate the cells in the row with the data
+        data = [[authorName, title, year, citations, pubtype, publisher, bibData, cite_as]];
+        rowRange = workbook.getActiveWorksheet().getRangeByIndexes(doi_cell.getRowIndex(), doi_cell.getColumnIndex()+1, 1, data[0].length);
+        rowRange.setValues(data);
+        
+        // populate hyperlinks
+        let file_url = "./literature/" + doi.replaceAll("/","-")+".pdf";
+        let file_hyperlink: ExcelScript.RangeHyperlink = {
+          address: "https://doi.org/" + doi,
+          textToDisplay: doi
+        }
+        let doi_hyperlink: ExcelScript.RangeHyperlink = {
+          address: file_url,
+          textToDisplay: title
+        }
+        doi_cell.setHyperlink(file_hyperlink);
+        let title_cell = workbook.getActiveWorksheet().getCell(doi_cell.getRowIndex(), 2);
+        title_cell.setHyperlink(doi_hyperlink);
       }
       else {
-        authorName = authors[0]["family"];
+        console.log(`No authors found in row ${doi_cell.getRowIndex()}`)
       }
-      let title: string = jsonData.message.title[0];
-      let year = jsonData.message["published-print"]?.["date-parts"]?.[0]?.[0] || 'Unknown';
-      let citations = jsonData.message["is-referenced-by-count"] || 0;
-      let pubtype: string = jsonData.message["type"];
-      let publisher = jsonData.message.publisher || 'Unknown';
-      let bibData_url: string = "https://api.crossref.org/works/"+doi+"/transform/application/x-bibtex";
-      const response_bib = await fetch(bibData_url);
-      let bibData = await response_bib.text();
-      bibData = bibData.trim()
-      let cite_as: string = bibData.split("{")[1].split(",")[0];
-      
-      // Populate the cells in the row with the data
-      data = [[authorName, title, year, citations, pubtype, publisher, bibData, cite_as]];
-      rowRange = workbook.getActiveWorksheet().getRangeByIndexes(doi_cell.getRowIndex(), doi_cell.getColumnIndex()+1, 1, data[0].length);
-      rowRange.setValues(data);
-      
-      // populate hyperlinks
-      let file_url = "./literature/" + doi.replaceAll("/","-")+".pdf";
-      let file_hyperlink: ExcelScript.RangeHyperlink = {
-        address: "https://doi.org/" + doi,
-        textToDisplay: doi
-      }
-      let doi_hyperlink: ExcelScript.RangeHyperlink = {
-        address: file_url,
-        textToDisplay: title
-      }
-      doi_cell.setHyperlink(file_hyperlink);
-      let title_cell = workbook.getActiveWorksheet().getCell(doi_cell.getRowIndex(), 2);
-      title_cell.setHyperlink(doi_hyperlink);
-      
     } else {
-      console.log(`No DOI found in row ${row + 1}`);
+      console.log(`No DOI found in row ${doi_cell.getRowIndex()}`);
     }
   }
 }
