@@ -13,18 +13,23 @@ async function main(workbook: ExcelScript.Workbook) {
   }
 
   for (let row = 0; row < rowCount; row++) {
-    let cell = selectedRange.getCell(row, 0);
-    let doi = cell.getValue().toString().trim();
+    let doi_cell = selectedRange.getCell(row, 0);
+    let doi = doi_cell.getValue().toString().trim();
 
     if (isDoi(doi)) {
-      let doi_url = "https://api.crossref.org/works/" + doi;
-      const response = await fetch(doi_url);
+      // get data from crossref
+      let doi_data_url = "https://api.crossref.org/works/" + doi;
+      const response = await fetch(doi_data_url);
       if (!response.ok) continue;
-      const jsonData: CrossRefResponse = await response.json();
 
+      // parse data
+      const jsonData: CrossRefResponse = await response.json();
       let authors: object = jsonData.message["author"];
-      if (authors.length > 1) {
+      if (authors.length > 2) {
         authorName = authors[0]["family"] + " et al.";
+      }
+      else if (authors.length > 1) {
+        authorName = authors[0]["family"] + " & " + authors[1]["family"];
       }
       else {
         authorName = authors[0]["family"];
@@ -42,15 +47,23 @@ async function main(workbook: ExcelScript.Workbook) {
       
       // Populate the cells in the row with the data
       data = [[authorName, title, year, citations, pubtype, publisher, bibData, cite_as]];
-      rowRange = workbook.getActiveWorksheet().getRangeByIndexes(cell.getRowIndex(), cell.getColumnIndex()+1, 1, data[0].length)
+      rowRange = workbook.getActiveWorksheet().getRangeByIndexes(doi_cell.getRowIndex(), doi_cell.getColumnIndex()+1, 1, data[0].length);
       rowRange.setValues(data);
       
-      let doi_url_file = "./literature/" + doi.replaceAll("/","-")+".pdf";
-      let doi_hyperlink: ExcelScript.RangeHyperlink = {
-        address: doi_url_file,
+      // populate hyperlinks
+      let file_url = "./literature/" + doi.replaceAll("/","-")+".pdf";
+      let file_hyperlink: ExcelScript.RangeHyperlink = {
+        address: "https://doi.org/" + doi,
         textToDisplay: doi
       }
-      cell.setHyperlink(doi_hyperlink);
+      let doi_hyperlink: ExcelScript.RangeHyperlink = {
+        address: file_url,
+        textToDisplay: title
+      }
+      doi_cell.setHyperlink(file_hyperlink);
+      let title_cell = workbook.getActiveWorksheet().getCell(doi_cell.getRowIndex(), 2);
+      title_cell.setHyperlink(doi_hyperlink);
+      
     } else {
       console.log(`No DOI found in row ${row + 1}`);
     }
