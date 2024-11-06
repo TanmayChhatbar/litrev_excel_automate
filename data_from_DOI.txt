@@ -1,12 +1,12 @@
 async function main(workbook: ExcelScript.Workbook) {
-  // Get the selected range.
+  // get the selected range
   let selectedRange = workbook.getSelectedRange();
 
-  // Get the number of rows and columns in the selected range.
+  // get the number of rows and columns in the selected range
   let rowCount = selectedRange.getRowCount();
   let columnCount = selectedRange.getColumnCount();
 
-  // Check if the column count is greater than 1.
+  // check if the column count is greater than 1
   if (columnCount > 1) {
     console.error("Error: More than one column selected. Please select a single column.");
     return; // Exit the function.
@@ -45,7 +45,10 @@ async function main(workbook: ExcelScript.Workbook) {
         let bibData_url: string = "https://api.crossref.org/works/"+doi+"/transform/application/x-bibtex";
         const response_bib = await fetch(bibData_url);
         let bibData = await response_bib.text();
-        bibData = bibData.trim()
+        bibData = bibData.trim().replaceAll("\n"," ");
+        while (bibData.search("  ") != -1) {
+          bibData = bibData.replace("  ", " ");
+        }
         let cite_as: string = bibData.split("{")[1].split(",")[0];
         
         // Populate the cells in the row with the data
